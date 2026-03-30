@@ -1,0 +1,15 @@
+[Unit]
+Description=Telegram to Claude Code bridge
+After=network.target
+
+[Service]
+Type=simple
+User=exedev
+WorkingDirectory=/home/exedev/tg-to-cc
+ExecStart=/bin/pnpm start
+Restart=always
+RestartSec=5
+EnvironmentFile=/home/exedev/tg-to-cc/.env
+
+[Install]
+WantedBy=multi-user.target

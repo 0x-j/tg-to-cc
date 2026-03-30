@@ -1,0 +1,30 @@
+# tg-to-claude-code
+
+Telegram bot bridging messages to Claude Code CLI via long polling.
+
+## Architecture
+
+- `src/index.ts` — Entry point, long-polling loop, command routing
+- `src/claude.ts` — Spawns `claude -p` with `--output-format json` and `--resume`
+- `src/telegram.ts` — Telegram Bot API helpers (sendMessage, typing indicator)
+- `src/sessions.ts` — Per-chat session tracking, history from `~/.claude/history.jsonl`
+- `src/queue.ts` — Per-chat promise chain to serialize concurrent messages
+- `src/format.ts` — Response formatting, message splitting
+
+## Running
+
+Always run as a systemd service in production:
+
+```bash
+sudo systemctl enable --now tg-to-cc
+journalctl -u tg-to-cc -f
+```
+
+## Key details
+
+- Uses `--dangerously-skip-permissions` since `-p` mode can't prompt interactively
+- Max buffer is 10MB for `execFile` (Claude can return large outputs)
+- Typing indicator refreshes every 4s (Telegram expires it after 5s)
+- Messages >4096 chars are split at paragraph/line boundaries
+- Markdown parse failures fall back to plain text
+- Config is in `.env` (not committed)
