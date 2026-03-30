@@ -1,5 +1,5 @@
 import "dotenv/config";
-import { sendMessage, startTyping } from "./telegram.js";
+import { sendMessage, startTyping, setMyCommands } from "./telegram.js";
 import { runClaude } from "./claude.js";
 import { formatResponse, timeAgo } from "./format.js";
 import {
@@ -20,6 +20,7 @@ const BOT_TOKEN = process.env.BOT_TOKEN!;
 const POLL_URL = `https://api.telegram.org/bot${BOT_TOKEN}/getUpdates`;
 
 loadSessions();
+setMyCommands();
 
 let offset = 0;
 
@@ -91,7 +92,16 @@ function handleCommand(chatId: number, text: string): void {
     case "/current": {
       const sid = getSessionId(chatId);
       if (sid) {
-        sendMessage(chatId, `Active session: \`${sid.slice(0, 8)}\``, "Markdown");
+        const info = findSession(sid);
+        const preview = info
+          ? info.display.slice(0, 60) + (info.display.length > 60 ? "..." : "")
+          : "";
+        const ago = info ? ` (${timeAgo(info.timestamp)})` : "";
+        sendMessage(
+          chatId,
+          `*Active session:* \`${sid.slice(0, 8)}\`${ago}\n${preview}`,
+          "Markdown"
+        );
       } else {
         sendMessage(chatId, "No active session. Send a message to start one.");
       }
@@ -146,7 +156,8 @@ function handlePrompt(chatId: number, prompt: string): void {
     const stopTyping = startTyping(chatId);
     try {
       const sessionId = getSessionId(chatId);
-      const result = await runClaude(prompt, sessionId);
+      const sessionInfo = sessionId ? findSession(sessionId) : undefined;
+      const result = await runClaude(prompt, sessionId, sessionInfo?.project);
       if (result.sessionId) {
         setSessionId(chatId, result.sessionId);
       }

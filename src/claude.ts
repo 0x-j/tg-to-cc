@@ -15,7 +15,8 @@ export interface ClaudeResult {
 
 export function runClaude(
   prompt: string,
-  sessionId?: string
+  sessionId?: string,
+  cwd?: string
 ): Promise<ClaudeResult> {
   const args = [
     "-p",
@@ -35,7 +36,7 @@ export function runClaude(
       CLAUDE_PATH,
       args,
       {
-        cwd: CLAUDE_CWD,
+        cwd: cwd || CLAUDE_CWD,
         timeout: TIMEOUT_MS,
         maxBuffer: 10 * 1024 * 1024,
         env: { ...process.env, FORCE_COLOR: "0" },
