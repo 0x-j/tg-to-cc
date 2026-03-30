@@ -22,7 +22,8 @@ export function runClaude(
     prompt,
     "--output-format",
     "json",
-    "--dangerously-skip-permissions",
+    "--permission-mode",
+    "auto",
   ];
 
   if (sessionId) {
@@ -64,9 +65,14 @@ export function runClaude(
               error: data.result,
             });
           } else {
+            let text = data.result || "(empty response)";
+            const denials: string[] = data.permission_denials || [];
+            if (denials.length) {
+              text += "\n\n⚠️ Permissions blocked:\n" + denials.map((d: string) => `• ${d}`).join("\n");
+            }
             resolve({
               success: true,
-              text: data.result || "(empty response)",
+              text,
               sessionId: data.session_id || sessionId || "",
               cost: data.total_cost_usd || 0,
               durationMs: data.duration_ms || 0,
