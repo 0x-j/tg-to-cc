@@ -10,13 +10,25 @@ const HISTORY_FILE = path.join(
   ".claude/history.jsonl"
 );
 
-const chatSessions = new Map<number, string>();
+interface ChatSession {
+  sessionId: string;
+  project: string;
+}
+
+const chatSessions = new Map<number, ChatSession>();
 
 export function load(): void {
   try {
     const data = JSON.parse(fs.readFileSync(SESSIONS_FILE, "utf-8"));
     for (const [k, v] of Object.entries(data)) {
-      chatSessions.set(Number(k), v as string);
+      if (typeof v === "string") {
+        // Migrate old format: look up project from history
+        const info = findSession(v);
+        chatSessions.set(Number(k), { sessionId: v, project: info?.project || "" });
+      } else {
+        const entry = v as ChatSession;
+        chatSessions.set(Number(k), entry);
+      }
     }
   } catch {
     // No file yet — that's fine
@@ -24,19 +36,23 @@ export function load(): void {
 }
 
 function save(): void {
-  const obj: Record<string, string> = {};
+  const obj: Record<string, ChatSession> = {};
   for (const [k, v] of chatSessions) obj[String(k)] = v;
   const tmp = SESSIONS_FILE + ".tmp";
   fs.writeFileSync(tmp, JSON.stringify(obj, null, 2));
   fs.renameSync(tmp, SESSIONS_FILE);
 }
 
-export function getSessionId(chatId: number): string | undefined {
+export function getSession(chatId: number): ChatSession | undefined {
   return chatSessions.get(chatId);
 }
 
-export function setSessionId(chatId: number, sessionId: string): void {
-  chatSessions.set(chatId, sessionId);
+export function getSessionId(chatId: number): string | undefined {
+  return chatSessions.get(chatId)?.sessionId;
+}
+
+export function setSession(chatId: number, sessionId: string, project: string): void {
+  chatSessions.set(chatId, { sessionId, project });
   save();
 }
 

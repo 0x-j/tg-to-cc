@@ -4,8 +4,9 @@ import { runClaude } from "./claude.js";
 import { formatResponse, timeAgo } from "./format.js";
 import {
   load as loadSessions,
+  getSession,
   getSessionId,
-  setSessionId,
+  setSession,
   clearSession,
   listHistory,
   findSession,
@@ -136,7 +137,7 @@ function handleCommand(chatId: number, text: string): void {
         sendMessage(chatId, `No session found matching \`${arg}\``, "Markdown");
         return;
       }
-      setSessionId(chatId, match.sessionId);
+      setSession(chatId, match.sessionId, match.project);
       const preview = match.display.slice(0, 60);
       sendMessage(
         chatId,
@@ -155,11 +156,10 @@ function handlePrompt(chatId: number, prompt: string): void {
   enqueue(chatId, async () => {
     const stopTyping = startTyping(chatId);
     try {
-      const sessionId = getSessionId(chatId);
-      const sessionInfo = sessionId ? findSession(sessionId) : undefined;
-      const result = await runClaude(prompt, sessionId, sessionInfo?.project);
+      const session = getSession(chatId);
+      const result = await runClaude(prompt, session?.sessionId, session?.project);
       if (result.sessionId) {
-        setSessionId(chatId, result.sessionId);
+        setSession(chatId, result.sessionId, session?.project || "");
       }
       const text = formatResponse(result);
       await sendMessage(chatId, text, "Markdown");
