@@ -1,5 +1,5 @@
 import "dotenv/config";
-import { sendMessage, startTyping, setMyCommands } from "./telegram.js";
+import { sendMessage, startTyping, setMyCommands, downloadFile } from "./telegram.js";
 import { runClaude, type ModelUsage } from "./claude.js";
 import { formatResponse, timeAgo } from "./format.js";
 import {
@@ -90,12 +90,28 @@ async function poll(): Promise<void> {
         offset = update.update_id + 1;
 
         const msg = update.message;
-        if (!msg?.text || !msg.chat?.id) continue;
+        if (!msg?.chat?.id) continue;
 
         const chatId: number = msg.chat.id;
-        const text: string = msg.text.trim();
-
         if (ALLOWED_CHAT_IDS && !ALLOWED_CHAT_IDS.has(chatId)) continue;
+
+        // Handle photo messages
+        if (msg.photo?.length) {
+          const fileId = msg.photo[msg.photo.length - 1].file_id; // largest size
+          const caption = (msg.caption || "").trim();
+          handleImage(chatId, fileId, caption);
+          continue;
+        }
+
+        // Handle document images
+        if (msg.document?.mime_type?.startsWith("image/")) {
+          const caption = (msg.caption || "").trim();
+          handleImage(chatId, msg.document.file_id, caption, extFromMime(msg.document.mime_type));
+          continue;
+        }
+
+        if (!msg.text) continue;
+        const text: string = msg.text.trim();
 
         if (text.startsWith("/")) {
           handleCommand(chatId, text);
@@ -111,7 +127,8 @@ async function poll(): Promise<void> {
 }
 
 function handleCommand(chatId: number, text: string): void {
-  const [cmd, ...rest] = text.split(/\s+/);
+  const [rawCmd, ...rest] = text.split(/\s+/);
+  const cmd = rawCmd.replace(/@\w+/, ""); // strip @botname suffix
   const arg = rest.join(" ").trim();
 
   switch (cmd) {
@@ -289,6 +306,38 @@ function handleCommand(chatId: number, text: string): void {
 function progressBar(used: number, total: number, width = 15): string {
   const filled = Math.round((used / total) * width);
   return "▓".repeat(Math.min(filled, width)) + "░".repeat(Math.max(width - filled, 0));
+}
+
+function extFromMime(mime: string): string {
+  const map: Record<string, string> = {
+    "image/jpeg": ".jpg", "image/png": ".png", "image/gif": ".gif",
+    "image/webp": ".webp", "image/bmp": ".bmp", "image/tiff": ".tiff",
+  };
+  return map[mime] || ".jpg";
+}
+
+function handleImage(chatId: number, fileId: string, caption: string, ext = ".jpg"): void {
+  enqueue(chatId, async () => {
+    const stopTyping = startTyping(chatId);
+    try {
+      const localPath = await downloadFile(fileId, ext);
+      const prompt = caption
+        ? `Look at the image at ${localPath} and respond to this: ${caption}`
+        : `Look at the image at ${localPath} and describe what you see.`;
+      const session = getSession(chatId);
+      const result = await runClaude(prompt, session?.sessionId, session?.project);
+      if (result.sessionId) {
+        setSession(chatId, result.sessionId, session?.project || "");
+      }
+      accumulateUsage(chatId, result.modelUsage, result.cost, result.durationMs, result.durationApiMs);
+      const text = formatResponse(result);
+      await sendMessage(chatId, text, "Markdown");
+    } catch (err) {
+      await sendMessage(chatId, `Error processing image: ${err}`);
+    } finally {
+      stopTyping();
+    }
+  });
 }
 
 function handlePrompt(chatId: number, prompt: string, dangerMode = false): void {
