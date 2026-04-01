@@ -22,7 +22,7 @@ journalctl -u tg-to-cc -f
 
 ## Key details
 
-- Uses `--dangerously-skip-permissions` since `-p` mode can't prompt interactively
+- Default permission mode is `auto`; `/danger` command runs with `--dangerously-skip-permissions`
 - Max buffer is 10MB for `execFile` (Claude can return large outputs)
 - Typing indicator refreshes every 4s (Telegram expires it after 5s)
 - Messages >4096 chars are split at paragraph/line boundaries

@@ -29,15 +29,17 @@ export interface ClaudeResult {
 export function runClaude(
   prompt: string,
   sessionId?: string,
-  cwd?: string
+  cwd?: string,
+  dangerMode?: boolean
 ): Promise<ClaudeResult> {
   const args = [
     "-p",
     prompt,
     "--output-format",
     "json",
-    "--permission-mode",
-    "auto",
+    ...(dangerMode
+      ? ["--dangerously-skip-permissions"]
+      : ["--permission-mode", "auto"]),
   ];
 
   if (sessionId) {

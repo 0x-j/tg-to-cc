@@ -128,6 +128,7 @@ function handleCommand(chatId: number, text: string): void {
           "/sessions — List recent sessions",
           "/resume <id> — Resume a session",
           "/current — Show active session",
+          "/danger <msg> — Run with full permissions (skip approval)",
           "/usage — Session token usage & cost",
           "/context — Context window status",
           "/help — This message",
@@ -196,6 +197,15 @@ function handleCommand(chatId: number, text: string): void {
         `Resumed session \`${match.sessionId.slice(0, 8)}\` — "${preview}"`,
         "Markdown"
       );
+      break;
+    }
+
+    case "/danger": {
+      if (!arg) {
+        sendMessage(chatId, "Usage: /danger <instruction>\n\nRuns with --dangerously-skip-permissions (no tool approval needed).");
+        break;
+      }
+      handlePrompt(chatId, arg, true);
       break;
     }
 
@@ -281,12 +291,12 @@ function progressBar(used: number, total: number, width = 15): string {
   return "▓".repeat(Math.min(filled, width)) + "░".repeat(Math.max(width - filled, 0));
 }
 
-function handlePrompt(chatId: number, prompt: string): void {
+function handlePrompt(chatId: number, prompt: string, dangerMode = false): void {
   enqueue(chatId, async () => {
     const stopTyping = startTyping(chatId);
     try {
       const session = getSession(chatId);
-      const result = await runClaude(prompt, session?.sessionId, session?.project);
+      const result = await runClaude(prompt, session?.sessionId, session?.project, dangerMode);
       if (result.sessionId) {
         setSession(chatId, result.sessionId, session?.project || "");
       }
