@@ -38,6 +38,8 @@ export async function setMyCommands(): Promise<void> {
         { command: "sessions", description: "List recent sessions" },
         { command: "resume", description: "Resume a session by ID" },
         { command: "current", description: "Show active session" },
+        { command: "usage", description: "Session token usage & cost" },
+        { command: "context", description: "Context window status" },
         { command: "help", description: "Show available commands" },
       ],
     }),
