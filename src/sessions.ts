@@ -1,8 +1,11 @@
 import fs from "node:fs";
 import path from "node:path";
+import { fileURLToPath } from "node:url";
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 const SESSIONS_FILE = path.join(
-  import.meta.dirname,
+  __dirname,
   "../data/sessions.json"
 );
 const HISTORY_FILE = path.join(
