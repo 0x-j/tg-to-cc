@@ -1,5 +1,6 @@
 import "dotenv/config";
-import { sendMessage, startTyping, setMyCommands, downloadFile } from "./telegram.js";
+import fs from "node:fs";
+import { sendMessage, startTyping, setMyCommands, downloadFile, PHOTO_DIR } from "./telegram.js";
 import { runClaude, type ModelUsage } from "./claude.js";
 import { formatResponse, timeAgo } from "./format.js";
 import {
@@ -319,13 +320,14 @@ function extFromMime(mime: string): string {
 function handleImage(chatId: number, fileId: string, caption: string, ext = ".jpg"): void {
   enqueue(chatId, async () => {
     const stopTyping = startTyping(chatId);
+    let localPath: string | undefined;
     try {
-      const localPath = await downloadFile(fileId, ext);
+      localPath = await downloadFile(fileId, ext);
       const prompt = caption
-        ? `Look at the image at ${localPath} and respond to this: ${caption}`
-        : `Look at the image at ${localPath} and describe what you see.`;
+        ? `Use the Read tool to view the image at ${localPath}, then respond to this: ${caption}`
+        : `Use the Read tool to view the image at ${localPath} and describe what you see.`;
       const session = getSession(chatId);
-      const result = await runClaude(prompt, session?.sessionId, session?.project);
+      const result = await runClaude(prompt, session?.sessionId, session?.project, false, [PHOTO_DIR]);
       if (result.sessionId) {
         setSession(chatId, result.sessionId, session?.project || "");
       }
@@ -336,6 +338,7 @@ function handleImage(chatId: number, fileId: string, caption: string, ext = ".jp
       await sendMessage(chatId, `Error processing image: ${err}`);
     } finally {
       stopTyping();
+      if (localPath) fs.unlink(localPath, () => {});
     }
   });
 }

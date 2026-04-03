@@ -1,5 +1,13 @@
+import fs from "node:fs";
+import path from "node:path";
+import os from "node:os";
+
 const BOT_TOKEN = process.env.BOT_TOKEN!;
 const API = `https://api.telegram.org/bot${BOT_TOKEN}`;
+const FILE_API = `https://api.telegram.org/file/bot${BOT_TOKEN}`;
+export const PHOTO_DIR = path.join(os.tmpdir(), "tg-to-cc-photos");
+
+fs.mkdirSync(PHOTO_DIR, { recursive: true });
 
 export async function sendMessage(
   chatId: number,
@@ -62,6 +70,24 @@ export function startTyping(chatId: number): () => void {
   sendChatAction(chatId);
   const interval = setInterval(() => sendChatAction(chatId), 4000);
   return () => clearInterval(interval);
+}
+
+export async function downloadFile(fileId: string, ext = ".jpg"): Promise<string> {
+  const res = await fetch(`${API}/getFile`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ file_id: fileId }),
+  });
+  const data = (await res.json()) as { ok: boolean; result: { file_path: string } };
+  if (!data.ok) throw new Error("Failed to get file path from Telegram");
+
+  const fileRes = await fetch(`${FILE_API}/${data.result.file_path}`);
+  if (!fileRes.ok) throw new Error("Failed to download file from Telegram");
+
+  const localPath = path.join(PHOTO_DIR, `${fileId}${ext}`);
+  const buf = Buffer.from(await fileRes.arrayBuffer());
+  fs.writeFileSync(localPath, buf);
+  return localPath;
 }
 
 function splitMessage(text: string, maxLen = 4096): string[] {

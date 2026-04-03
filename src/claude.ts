@@ -30,7 +30,8 @@ export function runClaude(
   prompt: string,
   sessionId?: string,
   cwd?: string,
-  dangerMode?: boolean
+  dangerMode?: boolean,
+  addDirs?: string[]
 ): Promise<ClaudeResult> {
   const args = [
     "-p",
@@ -40,6 +41,7 @@ export function runClaude(
     ...(dangerMode
       ? ["--dangerously-skip-permissions"]
       : ["--permission-mode", "auto"]),
+    ...(addDirs?.flatMap((d) => ["--add-dir", d]) ?? []),
   ];
 
   if (sessionId) {
