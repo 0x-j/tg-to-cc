@@ -41,6 +41,7 @@ export function load(): void {
 function save(): void {
   const obj: Record<string, ChatSession> = {};
   for (const [k, v] of chatSessions) obj[String(k)] = v;
+  fs.mkdirSync(path.dirname(SESSIONS_FILE), { recursive: true });
   const tmp = SESSIONS_FILE + ".tmp";
   fs.writeFileSync(tmp, JSON.stringify(obj, null, 2));
   fs.renameSync(tmp, SESSIONS_FILE);
