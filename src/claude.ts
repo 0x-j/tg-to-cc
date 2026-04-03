@@ -40,7 +40,7 @@ export function runClaude(
     "json",
     ...(dangerMode
       ? ["--dangerously-skip-permissions"]
-      : ["--permission-mode", "auto"]),
+      : ["--permission-mode", "auto", "--allowedTools", "WebSearch", "WebFetch"]),
     ...(addDirs?.flatMap((d) => ["--add-dir", d]) ?? []),
   ];
 
