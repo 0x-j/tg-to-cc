@@ -43,6 +43,11 @@ Check logs:
 journalctl -u tg-to-cc -f
 ```
 
+Update and restart after changes:
+```bash
+cd ~/tg-to-claude-code && git pull && sudo systemctl restart tg-to-cc
+```
+
 ### Manual
 
 ```bash
