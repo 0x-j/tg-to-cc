@@ -1,7 +1,7 @@
 import "dotenv/config";
 import fs from "node:fs";
 import path from "node:path";
-import { sendMessage, sendMessageWithKeyboard, answerCallbackQuery, startTyping, setMyCommands, downloadFile, PHOTO_DIR } from "./telegram.js";
+import { sendMessage, sendMessageWithKeyboard, answerCallbackQuery, startTyping, setMyCommands, downloadFile, showStopKeyboard, removeReplyKeyboard, PHOTO_DIR } from "./telegram.js";
 import { runClaude, CLAUDE_CWD, type ModelUsage } from "./claude.js";
 import { formatResponse, timeAgo } from "./format.js";
 import {
@@ -13,7 +13,7 @@ import {
   listHistory,
   findSession,
 } from "./sessions.js";
-import { enqueue, isBusy } from "./queue.js";
+import { enqueue, isBusy, setKill, clearKill, stop } from "./queue.js";
 import { loadConfigs, getConfig, setConfigField, MODELS, BUDGETS } from "./config.js";
 
 if (!process.env.ALLOWED_CHAT_IDS) {
@@ -184,6 +184,7 @@ function handleCommand(chatId: number, text: string): void {
           "/sessions — List recent sessions",
           "/resume <id> — Resume a session",
           "/current — Show active session",
+          "/stop — Cancel the running task",
           "/danger <msg> — Run with full permissions (skip approval)",
           "/config — Model, budget & permission settings",
           "/usage — Session token usage & cost",
@@ -259,6 +260,15 @@ function handleCommand(chatId: number, text: string): void {
         `Resumed session \`${match.sessionId.slice(0, 8)}\` — "${preview}"`,
         "Markdown"
       );
+      break;
+    }
+
+    case "/stop": {
+      if (stop(chatId)) {
+        sendMessage(chatId, "Stopping current task...");
+      } else {
+        sendMessage(chatId, "Nothing running.");
+      }
       break;
     }
 
@@ -372,6 +382,7 @@ function handleImage(chatId: number, fileId: string, caption: string, ext = ".jp
   }
   enqueue(chatId, async () => {
     const stopTyping = startTyping(chatId);
+    showStopKeyboard(chatId);
     let localPath: string | undefined;
     try {
       localPath = await downloadFile(fileId, ext);
@@ -381,7 +392,7 @@ function handleImage(chatId: number, fileId: string, caption: string, ext = ".jp
       const session = getSession(chatId);
       const cwd = session?.project || chatCwd(chatId);
       const cfg = getConfig(chatId);
-      const result = await runClaude(prompt, {
+      const handle = runClaude(prompt, {
         sessionId: session?.sessionId,
         cwd,
         dangerMode: cfg.alwaysDanger || false,
@@ -389,14 +400,21 @@ function handleImage(chatId: number, fileId: string, caption: string, ext = ".jp
         model: cfg.model,
         maxBudget: cfg.maxBudget,
       });
+      setKill(chatId, handle.kill);
+      const result = await handle.promise;
+      clearKill(chatId);
+      if (result.cancelled) {
+        await removeReplyKeyboard(chatId, "Task cancelled.");
+        return;
+      }
       if (result.sessionId) {
         setSession(chatId, result.sessionId, cwd, caption || "image");
       }
       accumulateUsage(chatId, result.modelUsage, result.cost, result.durationMs, result.durationApiMs);
       const text = formatResponse(result, cwd);
-      await sendMessage(chatId, text, "Markdown");
+      await removeReplyKeyboard(chatId, text, "Markdown");
     } catch (err) {
-      await sendMessage(chatId, `Error processing image: ${err}`);
+      await removeReplyKeyboard(chatId, `Error processing image: ${err}`);
     } finally {
       stopTyping();
       if (localPath) fs.unlink(localPath, () => {});
@@ -411,25 +429,33 @@ function handlePrompt(chatId: number, prompt: string, dangerMode = false): void 
   }
   enqueue(chatId, async () => {
     const stopTyping = startTyping(chatId);
+    showStopKeyboard(chatId);
     try {
       const session = getSession(chatId);
       const cwd = session?.project || chatCwd(chatId);
       const cfg = getConfig(chatId);
-      const result = await runClaude(prompt, {
+      const handle = runClaude(prompt, {
         sessionId: session?.sessionId,
         cwd,
         dangerMode: dangerMode || cfg.alwaysDanger || false,
         model: cfg.model,
         maxBudget: cfg.maxBudget,
       });
+      setKill(chatId, handle.kill);
+      const result = await handle.promise;
+      clearKill(chatId);
+      if (result.cancelled) {
+        await removeReplyKeyboard(chatId, "Task cancelled.");
+        return;
+      }
       if (result.sessionId) {
         setSession(chatId, result.sessionId, cwd, prompt);
       }
       accumulateUsage(chatId, result.modelUsage, result.cost, result.durationMs, result.durationApiMs);
       const text = formatResponse(result, cwd);
-      await sendMessage(chatId, text, "Markdown");
+      await removeReplyKeyboard(chatId, text, "Markdown");
     } catch (err) {
-      await sendMessage(chatId, `Error: ${err}`);
+      await removeReplyKeyboard(chatId, `Error: ${err}`);
     } finally {
       stopTyping();
     }

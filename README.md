@@ -78,6 +78,7 @@ pnpm start
 | `/sessions` | List recent sessions |
 | `/resume <id>` | Resume a session by ID prefix |
 | `/current` | Show active session |
+| `/stop` | Cancel the running task |
 | `/danger <msg>` | Run with `--dangerously-skip-permissions` (full tool access) |
 | `/config` | Per-chat settings: model, budget limit, skip permissions |
 | `/usage` | Session token usage & cost |
@@ -90,7 +91,7 @@ Any non-command message is sent to Claude Code as a prompt. Responses include a 
 
 Each message spawns `claude -p "<prompt>" --output-format json --resume <session-id>`. The `--resume` flag maintains multi-turn conversation context. Session IDs are tracked per Telegram chat in `data/sessions.json`.
 
-While Claude is generating, the bot shows a typing indicator. Once complete, the response is sent with a footer including session ID, cost, duration, and working directory.
+While Claude is generating, the bot shows a typing indicator and a `/stop` reply keyboard button. Tasks run with no hard timeout — the budget cap is the natural limit. Use `/stop` to cancel a long-running or stuck task at any time. Once complete, the reply keyboard is removed and the response is sent with a footer including session ID, cost, duration, and working directory.
 
 By default, Claude runs in `--permission-mode auto`. Use `/danger` to run a single message with `--dangerously-skip-permissions` when you need unrestricted file edits or other tool access. Use `/config` to permanently toggle skip-permissions per chat.
 

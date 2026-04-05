@@ -105,6 +105,7 @@ export async function setMyCommands(): Promise<void> {
         { command: "sessions", description: "List recent sessions" },
         { command: "resume", description: "Resume a session by ID" },
         { command: "current", description: "Show active session" },
+        { command: "stop", description: "Cancel the running task" },
         { command: "danger", description: "Run with full permissions (skip approval)" },
         { command: "config", description: "Model, budget & permission settings" },
         { command: "usage", description: "Session token usage & cost" },
@@ -153,6 +154,45 @@ export async function answerCallbackQuery(
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ callback_query_id: callbackQueryId, text }),
   });
+}
+
+export async function showStopKeyboard(chatId: number): Promise<void> {
+  await fetch(`${API}/sendMessage`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      chat_id: chatId,
+      text: "Working on it...",
+      reply_markup: {
+        keyboard: [[{ text: "/stop" }]],
+        resize_keyboard: true,
+        one_time_keyboard: true,
+      },
+    }),
+  });
+}
+
+export async function removeReplyKeyboard(chatId: number, text: string, parseMode?: string): Promise<void> {
+  const body: Record<string, unknown> = {
+    chat_id: chatId,
+    text,
+    reply_markup: { remove_keyboard: true },
+  };
+  if (parseMode) body.parse_mode = parseMode;
+
+  const res = await fetch(`${API}/sendMessage`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+
+  if (!res.ok && parseMode) {
+    await fetch(`${API}/sendMessage`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ ...body, parse_mode: undefined }),
+    });
+  }
 }
 
 export async function sendChatAction(
