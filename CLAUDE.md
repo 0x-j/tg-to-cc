@@ -5,8 +5,8 @@ Telegram bot bridging messages to Claude Code CLI via long polling.
 ## Architecture
 
 - `src/index.ts` — Entry point, long-polling loop, command routing
-- `src/claude.ts` — Spawns `claude -p` with `--output-format stream-json` and `--resume`; streams progress via callback
-- `src/telegram.ts` — Telegram Bot API helpers (sendMessage, editMessage, deleteMessage, typing indicator)
+- `src/claude.ts` — Spawns `claude -p` with `--output-format json` and `--resume`
+- `src/telegram.ts` — Telegram Bot API helpers (sendMessage, typing indicator)
 - `src/sessions.ts` — Per-chat session tracking, history from `~/.claude/history.jsonl`, scoped by project
 - `src/queue.ts` — Per-chat busy gate; rejects new messages while one is in-flight
 - `src/format.ts` — Response formatting, message splitting
@@ -24,7 +24,7 @@ journalctl -u tg-to-cc -f
 
 - Default permission mode is `auto`; `/danger` command runs with `--dangerously-skip-permissions`
 - Max buffer is 10MB for `execFile` (Claude can return large outputs)
-- Streaming: progress message updates every 2s via editMessage; replaced with final response on completion
+- Typing indicator refreshes every 4s while Claude is generating
 - Messages >4096 chars are split at paragraph/line boundaries
 - Markdown parse failures fall back to plain text
 - Response footer includes session ID, cost, duration, and working directory
