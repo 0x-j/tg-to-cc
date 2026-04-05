@@ -52,6 +52,7 @@ cp .env.example .env
 sudo cp tg-to-cc.service /etc/systemd/system/
 sudo systemctl daemon-reload
 sudo systemctl enable --now tg-to-cc
+sudo systemctl restart tg-to-cc
 ```
 
 Check logs:
