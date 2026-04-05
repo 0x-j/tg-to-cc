@@ -3,6 +3,7 @@ import { execFile } from "node:child_process";
 const CLAUDE_PATH = process.env.CLAUDE_PATH || "/home/exedev/.local/bin/claude";
 const CLAUDE_CWD = process.env.CLAUDE_CWD || "/home/exedev";
 const TIMEOUT_MS = 5 * 60 * 1000; // 5 minutes
+const MAX_BUDGET_USD = process.env.MAX_BUDGET_USD || "0.50";
 
 export interface ModelUsage {
   inputTokens: number;
@@ -24,6 +25,7 @@ export interface ClaudeResult {
   numTurns: number;
   modelUsage: Record<string, ModelUsage>;
   error?: string;
+  budgetExceeded?: boolean;
 }
 
 export function runClaude(
@@ -38,6 +40,8 @@ export function runClaude(
     prompt,
     "--output-format",
     "json",
+    "--max-budget-usd",
+    MAX_BUDGET_USD,
     ...(dangerMode
       ? ["--dangerously-skip-permissions"]
       : ["--permission-mode", "auto", "--allowedTools", "WebSearch", "WebFetch"]),
@@ -100,7 +104,10 @@ export function runClaude(
           };
 
           if (data.is_error) {
-            resolve({ ...base, success: false, text: data.result || "Unknown error", error: data.result });
+            const errors: string[] = data.errors || [];
+            const budgetExceeded = data.subtype === "error_max_budget_usd";
+            const errorMsg = errors.join("; ") || data.result || "Unknown error";
+            resolve({ ...base, success: false, text: errorMsg, error: errorMsg, budgetExceeded });
           } else {
             let text = data.result || "(empty response)";
             const denials: string[] = data.permission_denials || [];

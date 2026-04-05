@@ -12,7 +12,7 @@ import {
   listHistory,
   findSession,
 } from "./sessions.js";
-import { enqueue } from "./queue.js";
+import { enqueue, isBusy } from "./queue.js";
 
 const ALLOWED_CHAT_IDS = process.env.ALLOWED_CHAT_IDS
   ? new Set(process.env.ALLOWED_CHAT_IDS.split(",").map(Number))
@@ -318,6 +318,10 @@ function extFromMime(mime: string): string {
 }
 
 function handleImage(chatId: number, fileId: string, caption: string, ext = ".jpg"): void {
+  if (isBusy(chatId)) {
+    sendMessage(chatId, "Please wait — still generating a response.");
+    return;
+  }
   enqueue(chatId, async () => {
     const stopTyping = startTyping(chatId);
     let localPath: string | undefined;
@@ -344,6 +348,10 @@ function handleImage(chatId: number, fileId: string, caption: string, ext = ".jp
 }
 
 function handlePrompt(chatId: number, prompt: string, dangerMode = false): void {
+  if (isBusy(chatId)) {
+    sendMessage(chatId, "Please wait — still generating a response.");
+    return;
+  }
   enqueue(chatId, async () => {
     const stopTyping = startTyping(chatId);
     try {

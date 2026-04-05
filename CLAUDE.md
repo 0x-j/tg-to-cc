@@ -8,7 +8,7 @@ Telegram bot bridging messages to Claude Code CLI via long polling.
 - `src/claude.ts` — Spawns `claude -p` with `--output-format json` and `--resume`
 - `src/telegram.ts` — Telegram Bot API helpers (sendMessage, typing indicator)
 - `src/sessions.ts` — Per-chat session tracking, history from `~/.claude/history.jsonl`
-- `src/queue.ts` — Per-chat promise chain to serialize concurrent messages
+- `src/queue.ts` — Per-chat busy gate; rejects new messages while one is in-flight
 - `src/format.ts` — Response formatting, message splitting
 
 ## Running
@@ -27,4 +27,6 @@ journalctl -u tg-to-cc -f
 - Typing indicator refreshes every 4s (Telegram expires it after 5s)
 - Messages >4096 chars are split at paragraph/line boundaries
 - Markdown parse failures fall back to plain text
+- Per-invocation budget cap via `--max-budget-usd` (default $0.50, override with `MAX_BUDGET_USD` env var)
+- Only one request per chat at a time; new messages are rejected with a "please wait" notice while a response is generating
 - Config is in `.env` (not committed)

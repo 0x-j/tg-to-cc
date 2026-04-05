@@ -2,6 +2,9 @@ import type { ClaudeResult } from "./claude.js";
 
 export function formatResponse(result: ClaudeResult): string {
   if (!result.success) {
+    if (result.budgetExceeded) {
+      return `⚠️ Budget limit reached for this message. The response may be incomplete.\n\n${result.error}`;
+    }
     return `Error: ${result.error || "Unknown error"}`;
   }
 

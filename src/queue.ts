@@ -1,12 +1,12 @@
-const queues = new Map<number, Promise<void>>();
+const busy = new Set<number>();
+
+export function isBusy(chatId: number): boolean {
+  return busy.has(chatId);
+}
 
 export function enqueue(chatId: number, task: () => Promise<void>): void {
-  const prev = queues.get(chatId) ?? Promise.resolve();
-  const next = prev
-    .then(task)
+  busy.add(chatId);
+  task()
     .catch(() => {})
-    .finally(() => {
-      if (queues.get(chatId) === next) queues.delete(chatId);
-    });
-  queues.set(chatId, next);
+    .finally(() => busy.delete(chatId));
 }
