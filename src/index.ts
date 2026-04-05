@@ -1,6 +1,7 @@
 import "dotenv/config";
 import fs from "node:fs";
 import path from "node:path";
+import { execFile } from "node:child_process";
 import { sendMessage, sendMessageWithKeyboard, answerCallbackQuery, startTyping, setMyCommands, downloadFile, showStopKeyboard, removeReplyKeyboard, PHOTO_DIR } from "./telegram.js";
 import { runClaude, CLAUDE_CWD, type ModelUsage } from "./claude.js";
 import { formatResponse, timeAgo } from "./format.js";
@@ -195,6 +196,7 @@ function handleCommand(chatId: number, text: string): void {
           "/stop — Cancel the running task",
           "/danger <msg> — Run with full permissions (skip approval)",
           "/config — Model, budget & permission settings",
+          "/upgrade — Upgrade tg bot itself to latest",
           "/usage — Session token usage & cost",
           "/context — Context window status",
           "/help — This message",
@@ -417,6 +419,36 @@ function handleCommand(chatId: number, text: string): void {
     case "/config":
       sendConfigMenu(chatId);
       break;
+
+    case "/upgrade": {
+      const botDir = path.resolve(import.meta.dirname!, "..");
+      sendMessage(chatId, "Pulling latest changes...");
+      // Capture current HEAD before pull so we can show what changed
+      execFile("git", ["rev-parse", "HEAD"], { cwd: botDir }, (_, oldHead) => {
+        const oldRef = (oldHead || "").trim();
+        execFile("git", ["pull"], { cwd: botDir, timeout: 30000 }, async (err, stdout, stderr) => {
+          const output = (stdout || stderr || err?.message || "").trim();
+          if (err) {
+            await sendMessage(chatId, `Upgrade failed:\n\`\`\`\n${output}\n\`\`\``, "Markdown");
+            return;
+          }
+          if (output.includes("Already up to date")) {
+            await sendMessage(chatId, "Already up to date.");
+            return;
+          }
+          // Show commit log of what changed
+          execFile("git", ["log", "--oneline", `${oldRef}..HEAD`], { cwd: botDir }, async (_, log) => {
+            const changes = (log || "").trim();
+            const msg = changes
+              ? `*Changes:*\n\`\`\`\n${changes}\n\`\`\`\nRestarting...`
+              : `\`\`\`\n${output}\n\`\`\`\nRestarting...`;
+            await sendMessage(chatId, msg, "Markdown");
+            execFile("sudo", ["systemctl", "restart", "tg-to-cc"], { timeout: 10000 }, () => {});
+          });
+        });
+      });
+      break;
+    }
 
     default:
       sendMessage(chatId, "Unknown command. Try /help");

@@ -85,6 +85,7 @@ pnpm start
 | `/stop` | Cancel the running task |
 | `/danger <msg>` | Run with `--dangerously-skip-permissions` (full tool access) |
 | `/config` | Per-chat settings: model, budget limit, skip permissions |
+| `/upgrade` | Upgrade tg bot itself to latest |
 | `/usage` | Session token usage & cost |
 | `/context` | Context window status |
 | `/help` | Show commands |

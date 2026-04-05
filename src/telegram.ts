@@ -110,6 +110,7 @@ export async function setMyCommands(): Promise<void> {
         { command: "stop", description: "Cancel the running task" },
         { command: "danger", description: "Run with full permissions (skip approval)" },
         { command: "config", description: "Model, budget & permission settings" },
+        { command: "upgrade", description: "Upgrade tg bot itself to latest" },
         { command: "usage", description: "Session token usage & cost" },
         { command: "context", description: "Context window status" },
         { command: "help", description: "Show available commands" },
