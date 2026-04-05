@@ -84,11 +84,13 @@ pnpm start
 | `/context` | Context window status |
 | `/help` | Show commands |
 
-Any non-command message is sent to Claude Code as a prompt. Responses include a footer with session ID, cost, and duration.
+Any non-command message is sent to Claude Code as a prompt. Responses stream live and include a footer with session ID, cost, duration, and working directory.
 
 ## How it works
 
-Each message spawns `claude -p "<prompt>" --output-format json --resume <session-id>`. The `--resume` flag maintains multi-turn conversation context. Session IDs are tracked per Telegram chat in `data/sessions.json`.
+Each message spawns `claude -p "<prompt>" --output-format stream-json --resume <session-id>`. The `--resume` flag maintains multi-turn conversation context. Session IDs are tracked per Telegram chat in `data/sessions.json`.
+
+While Claude is generating, the bot streams progress updates to Telegram by editing a single message every 2 seconds with the latest assistant text (prefixed with ⏳). Once complete, the message is replaced with the final formatted response including a footer with session ID, cost, duration, and working directory.
 
 By default, Claude runs in `--permission-mode auto`. Use `/danger` to run a single message with `--dangerously-skip-permissions` when you need unrestricted file edits or other tool access.
 

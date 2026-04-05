@@ -1,7 +1,7 @@
 import "dotenv/config";
 import fs from "node:fs";
 import path from "node:path";
-import { sendMessage, startTyping, setMyCommands, downloadFile, PHOTO_DIR } from "./telegram.js";
+import { sendMessage, sendMessageWithId, editMessage, deleteMessage, setMyCommands, downloadFile, PHOTO_DIR } from "./telegram.js";
 import { runClaude, CLAUDE_CWD, type ModelUsage } from "./claude.js";
 import { formatResponse, timeAgo } from "./format.js";
 import {
@@ -332,7 +332,7 @@ function handleImage(chatId: number, fileId: string, caption: string, ext = ".jp
     return;
   }
   enqueue(chatId, async () => {
-    const stopTyping = startTyping(chatId);
+    const stream = createStreamUpdater(chatId);
     let localPath: string | undefined;
     try {
       localPath = await downloadFile(fileId, ext);
@@ -341,20 +341,73 @@ function handleImage(chatId: number, fileId: string, caption: string, ext = ".jp
         : `Use the Read tool to view the image at ${localPath} and describe what you see.`;
       const session = getSession(chatId);
       const cwd = session?.project || chatCwd(chatId);
-      const result = await runClaude(prompt, session?.sessionId, cwd, false, [PHOTO_DIR]);
+      const result = await runClaude(prompt, session?.sessionId, cwd, false, [PHOTO_DIR], stream.onProgress);
       if (result.sessionId) {
         setSession(chatId, result.sessionId, cwd);
       }
       accumulateUsage(chatId, result.modelUsage, result.cost, result.durationMs, result.durationApiMs);
-      const text = formatResponse(result);
-      await sendMessage(chatId, text, "Markdown");
+      const text = formatResponse(result, cwd);
+      await stream.finalize(text, "Markdown");
     } catch (err) {
-      await sendMessage(chatId, `Error processing image: ${err}`);
+      await stream.finalize(`Error processing image: ${err}`);
     } finally {
-      stopTyping();
       if (localPath) fs.unlink(localPath, () => {});
     }
   });
+}
+
+function createStreamUpdater(chatId: number) {
+  let messageId: number | null = null;
+  let lastUpdate = 0;
+  let pendingText = "";
+  let updateTimer: ReturnType<typeof setTimeout> | null = null;
+  const UPDATE_INTERVAL = 2000;
+
+  async function doUpdate(text: string) {
+    const display = text.length > 4000 ? "…" + text.slice(-3990) : text;
+    try {
+      if (!messageId) {
+        messageId = await sendMessageWithId(chatId, "⏳ " + display);
+      } else {
+        await editMessage(chatId, messageId, "⏳ " + display);
+      }
+    } catch {}
+    lastUpdate = Date.now();
+  }
+
+  return {
+    onProgress(text: string) {
+      pendingText = text;
+      const now = Date.now();
+      if (now - lastUpdate >= UPDATE_INTERVAL) {
+        doUpdate(text);
+      } else if (!updateTimer) {
+        updateTimer = setTimeout(() => {
+          updateTimer = null;
+          doUpdate(pendingText);
+        }, UPDATE_INTERVAL - (now - lastUpdate));
+      }
+    },
+    async finalize(finalText: string, parseMode?: string) {
+      if (updateTimer) {
+        clearTimeout(updateTimer);
+        updateTimer = null;
+      }
+      if (messageId) {
+        if (finalText.length <= 4096) {
+          const ok = await editMessage(chatId, messageId, finalText, parseMode);
+          if (!ok && parseMode) {
+            await editMessage(chatId, messageId, finalText);
+          }
+        } else {
+          await deleteMessage(chatId, messageId);
+          await sendMessage(chatId, finalText, parseMode);
+        }
+      } else {
+        await sendMessage(chatId, finalText, parseMode);
+      }
+    },
+  };
 }
 
 function handlePrompt(chatId: number, prompt: string, dangerMode = false): void {
@@ -363,21 +416,19 @@ function handlePrompt(chatId: number, prompt: string, dangerMode = false): void 
     return;
   }
   enqueue(chatId, async () => {
-    const stopTyping = startTyping(chatId);
+    const stream = createStreamUpdater(chatId);
     try {
       const session = getSession(chatId);
       const cwd = session?.project || chatCwd(chatId);
-      const result = await runClaude(prompt, session?.sessionId, cwd, dangerMode);
+      const result = await runClaude(prompt, session?.sessionId, cwd, dangerMode, undefined, stream.onProgress);
       if (result.sessionId) {
         setSession(chatId, result.sessionId, cwd);
       }
       accumulateUsage(chatId, result.modelUsage, result.cost, result.durationMs, result.durationApiMs);
-      const text = formatResponse(result);
-      await sendMessage(chatId, text, "Markdown");
+      const text = formatResponse(result, cwd);
+      await stream.finalize(text, "Markdown");
     } catch (err) {
-      await sendMessage(chatId, `Error: ${err}`);
-    } finally {
-      stopTyping();
+      await stream.finalize(`Error: ${err}`);
     }
   });
 }

@@ -1,6 +1,6 @@
 import type { ClaudeResult } from "./claude.js";
 
-export function formatResponse(result: ClaudeResult): string {
+export function formatResponse(result: ClaudeResult, cwd?: string): string {
   if (!result.success) {
     if (result.budgetExceeded) {
       return `⚠️ Budget limit reached for this message. The response may be incomplete.\n\n${result.error}`;
@@ -11,7 +11,8 @@ export function formatResponse(result: ClaudeResult): string {
   const sid = result.sessionId.slice(0, 8);
   const cost = result.cost.toFixed(4);
   const dur = (result.durationMs / 1000).toFixed(1);
-  const footer = `\n\n_session: \`${sid}\` | $${cost} | ${dur}s_`;
+  const cwdPart = cwd ? ` | \`${cwd.replace(/^\/home\/[^/]+/, "~")}\`` : "";
+  const footer = `\n\n_session: \`${sid}\` | $${cost} | ${dur}s${cwdPart}_`;
 
   return result.text + footer;
 }

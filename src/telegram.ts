@@ -36,6 +36,65 @@ export async function sendMessage(
   }
 }
 
+export async function sendMessageWithId(
+  chatId: number,
+  text: string,
+  parseMode?: string
+): Promise<number | null> {
+  const body: Record<string, unknown> = { chat_id: chatId, text: text.slice(0, 4096) };
+  if (parseMode) body.parse_mode = parseMode;
+
+  const res = await fetch(`${API}/sendMessage`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+  const data = (await res.json()) as { ok: boolean; result?: { message_id: number } };
+  return data.ok ? data.result!.message_id : null;
+}
+
+export async function editMessage(
+  chatId: number,
+  messageId: number,
+  text: string,
+  parseMode?: string
+): Promise<boolean> {
+  const body: Record<string, unknown> = {
+    chat_id: chatId,
+    message_id: messageId,
+    text: text.slice(0, 4096),
+  };
+  if (parseMode) body.parse_mode = parseMode;
+
+  const res = await fetch(`${API}/editMessageText`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+
+  if (!res.ok && parseMode) {
+    // Markdown parse failed — retry as plain text
+    const res2 = await fetch(`${API}/editMessageText`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ chat_id: chatId, message_id: messageId, text: text.slice(0, 4096) }),
+    });
+    return res2.ok;
+  }
+  return res.ok;
+}
+
+export async function deleteMessage(
+  chatId: number,
+  messageId: number
+): Promise<void> {
+  await fetch(`${API}/deleteMessage`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ chat_id: chatId, message_id: messageId }),
+  });
+}
+
 export async function setMyCommands(): Promise<void> {
   await fetch(`${API}/setMyCommands`, {
     method: "POST",
