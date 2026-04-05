@@ -87,7 +87,7 @@ function formatDuration(ms: number): string {
 
 loadSessions();
 loadConfigs();
-setMyCommands();
+setMyCommands().catch(() => {});
 
 let offset = 0;
 
@@ -266,20 +266,22 @@ function handleCommand(chatId: number, text: string): void {
 
     case "/current": {
       const sid = getSessionId(chatId);
+      const proj = getActiveProject(chatId);
+      const lines: string[] = [];
+      lines.push(`*Project:* \`${proj.name}\``);
+      lines.push(`*Directory:* \`${proj.path}\``);
       if (sid) {
         const info = findSession(chatId, sid);
         const preview = info
           ? info.display.slice(0, 60) + (info.display.length > 60 ? "..." : "")
           : "";
         const ago = info ? ` (${timeAgo(info.timestamp)})` : "";
-        sendMessage(
-          chatId,
-          `*Active session:* \`${sid.slice(0, 8)}\`${ago}\n${preview}`,
-          "Markdown"
-        );
+        lines.push(`*Session:* \`${sid.slice(0, 8)}\`${ago}`);
+        if (preview) lines.push(preview);
       } else {
-        sendMessage(chatId, "No active session. Send a message to start one.");
+        lines.push("_No active session._");
       }
+      sendMessage(chatId, lines.join("\n"), "Markdown");
       break;
     }
 

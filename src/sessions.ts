@@ -4,10 +4,9 @@ import { fileURLToPath } from "node:url";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
-const SESSIONS_FILE = path.join(
-  __dirname,
-  "../data/sessions.json"
-);
+const DATA_DIR = path.join(__dirname, "../data");
+fs.mkdirSync(DATA_DIR, { recursive: true });
+const SESSIONS_FILE = path.join(DATA_DIR, "sessions.json");
 
 interface ChatSession {
   sessionId: string;

@@ -3,7 +3,9 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const CONFIG_FILE = path.join(__dirname, "../data/config.json");
+const DATA_DIR = path.join(__dirname, "../data");
+fs.mkdirSync(DATA_DIR, { recursive: true });
+const CONFIG_FILE = path.join(DATA_DIR, "config.json");
 
 export interface ProjectEntry {
   name: string;
