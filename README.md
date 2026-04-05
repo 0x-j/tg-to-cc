@@ -41,10 +41,8 @@ cp .env.example .env
 
 ### Get your chat ID
 
-1. Start the bot with `ALLOWED_CHAT_IDS` empty
-2. Send a message to your bot
-3. Check `data/sessions.json` — the key is your chat ID
-4. Add it to `ALLOWED_CHAT_IDS` and restart
+1. Message [@userinfobot](https://t.me/userinfobot) on Telegram — it replies with your chat ID
+2. Add it to `ALLOWED_CHAT_IDS` in `.env`
 
 ## Running
 
