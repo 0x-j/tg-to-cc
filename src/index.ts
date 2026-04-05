@@ -173,7 +173,7 @@ function handleCommand(chatId: number, text: string): void {
     case "/current": {
       const sid = getSessionId(chatId);
       if (sid) {
-        const info = findSession(sid);
+        const info = findSession(chatId, sid);
         const preview = info
           ? info.display.slice(0, 60) + (info.display.length > 60 ? "..." : "")
           : "";
@@ -190,7 +190,7 @@ function handleCommand(chatId: number, text: string): void {
     }
 
     case "/sessions": {
-      const sessions = listHistory(10, chatCwd(chatId));
+      const sessions = listHistory(chatId);
       if (!sessions.length) {
         sendMessage(chatId, "No sessions found.");
         return;
@@ -212,7 +212,7 @@ function handleCommand(chatId: number, text: string): void {
         sendMessage(chatId, "Usage: /resume <session-id-prefix>");
         return;
       }
-      const match = findSession(arg, chatCwd(chatId));
+      const match = findSession(chatId, arg);
       if (!match) {
         sendMessage(chatId, `No session found matching \`${arg}\``, "Markdown");
         return;
@@ -343,7 +343,7 @@ function handleImage(chatId: number, fileId: string, caption: string, ext = ".jp
       const cwd = session?.project || chatCwd(chatId);
       const result = await runClaude(prompt, session?.sessionId, cwd, false, [PHOTO_DIR]);
       if (result.sessionId) {
-        setSession(chatId, result.sessionId, cwd);
+        setSession(chatId, result.sessionId, cwd, caption || "image");
       }
       accumulateUsage(chatId, result.modelUsage, result.cost, result.durationMs, result.durationApiMs);
       const text = formatResponse(result, cwd);
@@ -369,7 +369,7 @@ function handlePrompt(chatId: number, prompt: string, dangerMode = false): void 
       const cwd = session?.project || chatCwd(chatId);
       const result = await runClaude(prompt, session?.sessionId, cwd, dangerMode);
       if (result.sessionId) {
-        setSession(chatId, result.sessionId, cwd);
+        setSession(chatId, result.sessionId, cwd, prompt);
       }
       accumulateUsage(chatId, result.modelUsage, result.cost, result.durationMs, result.durationApiMs);
       const text = formatResponse(result, cwd);
