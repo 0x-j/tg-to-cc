@@ -58,6 +58,7 @@ export function runClaude(
     prompt,
     "--output-format",
     "stream-json",
+    "--verbose",
     "--max-budget-usd",
     MAX_BUDGET_USD,
     ...(dangerMode
