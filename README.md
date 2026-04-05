@@ -37,7 +37,6 @@ cp .env.example .env
 | `ALLOWED_CHAT_IDS` | Yes | Comma-separated chat IDs to whitelist |
 | `CLAUDE_CWD` | No | Base working directory (default: `/home/exedev/workspace`). Each chat gets a subdirectory: `CLAUDE_CWD/<chatId>/` |
 | `CLAUDE_PATH` | No | Path to claude binary (default: `/home/exedev/.local/bin/claude`) |
-| `MAX_BUDGET_USD` | No | Max spend per invocation (default: `0.50`) |
 
 ### Get your chat ID
 
@@ -80,6 +79,7 @@ pnpm start
 | `/resume <id>` | Resume a session by ID prefix |
 | `/current` | Show active session |
 | `/danger <msg>` | Run with `--dangerously-skip-permissions` (full tool access) |
+| `/config` | Per-chat settings: model, budget limit, skip permissions |
 | `/usage` | Session token usage & cost |
 | `/context` | Context window status |
 | `/help` | Show commands |
@@ -92,7 +92,17 @@ Each message spawns `claude -p "<prompt>" --output-format json --resume <session
 
 While Claude is generating, the bot shows a typing indicator. Once complete, the response is sent with a footer including session ID, cost, duration, and working directory.
 
-By default, Claude runs in `--permission-mode auto`. Use `/danger` to run a single message with `--dangerously-skip-permissions` when you need unrestricted file edits or other tool access.
+By default, Claude runs in `--permission-mode auto`. Use `/danger` to run a single message with `--dangerously-skip-permissions` when you need unrestricted file edits or other tool access. Use `/config` to permanently toggle skip-permissions per chat.
+
+## Per-chat configuration
+
+Use `/config` to customize settings per Telegram chat via inline keyboard buttons:
+
+- **Model** — Default, Sonnet 4.6, Opus 4.6, or Haiku 4.5
+- **Budget** — Per-message spend cap ($0.25–$5.00, default $0.50)
+- **Skip permissions** — Always run in danger mode (no tool approval)
+
+Config persists in `data/config.json` and applies across all sessions in a chat.
 
 ## Multi-user isolation
 

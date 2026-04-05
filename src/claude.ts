@@ -3,7 +3,7 @@ import { execFile } from "node:child_process";
 const CLAUDE_PATH = process.env.CLAUDE_PATH || "/home/exedev/.local/bin/claude";
 export const CLAUDE_CWD = process.env.CLAUDE_CWD || "/home/exedev/workspace";
 const TIMEOUT_MS = 5 * 60 * 1000; // 5 minutes
-const MAX_BUDGET_USD = process.env.MAX_BUDGET_USD || "0.50";
+const DEFAULT_BUDGET_USD = "0.50";
 
 export interface ModelUsage {
   inputTokens: number;
@@ -28,20 +28,29 @@ export interface ClaudeResult {
   budgetExceeded?: boolean;
 }
 
+export interface ClaudeOptions {
+  sessionId?: string;
+  cwd?: string;
+  dangerMode?: boolean;
+  addDirs?: string[];
+  model?: string;
+  maxBudget?: number;
+}
+
 export function runClaude(
   prompt: string,
-  sessionId?: string,
-  cwd?: string,
-  dangerMode?: boolean,
-  addDirs?: string[]
+  opts: ClaudeOptions = {}
 ): Promise<ClaudeResult> {
+  const { sessionId, cwd, dangerMode, addDirs, model, maxBudget } = opts;
+  const budget = maxBudget ? String(maxBudget) : DEFAULT_BUDGET_USD;
   const args = [
     "-p",
     prompt,
     "--output-format",
     "json",
     "--max-budget-usd",
-    MAX_BUDGET_USD,
+    budget,
+    ...(model ? ["--model", model] : []),
     ...(dangerMode
       ? ["--dangerously-skip-permissions"]
       : ["--permission-mode", "auto", "--allowedTools", "WebSearch", "WebFetch"]),

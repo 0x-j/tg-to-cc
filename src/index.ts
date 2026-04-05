@@ -14,6 +14,7 @@ import {
   findSession,
 } from "./sessions.js";
 import { enqueue, isBusy } from "./queue.js";
+import { loadConfigs, getConfig, setConfigField, MODELS, BUDGETS } from "./config.js";
 
 if (!process.env.ALLOWED_CHAT_IDS) {
   console.error("ALLOWED_CHAT_IDS is required. Set it in .env as a comma-separated list of Telegram chat IDs.");
@@ -80,6 +81,7 @@ function formatDuration(ms: number): string {
 }
 
 loadSessions();
+loadConfigs();
 setMyCommands();
 
 let offset = 0;
@@ -101,22 +103,26 @@ async function poll(): Promise<void> {
 
         // Handle inline keyboard callback queries
         const cb = update.callback_query;
-        if (cb?.data?.startsWith("resume:") && cb.message?.chat?.id) {
+        if (cb?.data && cb.message?.chat?.id) {
           const cbChatId: number = cb.message.chat.id;
           if (ALLOWED_CHAT_IDS.has(cbChatId)) {
-            const sessionId = cb.data.slice("resume:".length);
-            const match = findSession(cbChatId, sessionId);
-            if (match) {
-              setSession(cbChatId, match.sessionId, match.project);
-              const preview = match.display.slice(0, 60);
-              answerCallbackQuery(cb.id, `Resumed ${match.sessionId.slice(0, 8)}`);
-              sendMessage(
-                cbChatId,
-                `Resumed session \`${match.sessionId.slice(0, 8)}\` — "${preview}"`,
-                "Markdown"
-              );
-            } else {
-              answerCallbackQuery(cb.id, "Session not found");
+            if (cb.data.startsWith("resume:")) {
+              const sessionId = cb.data.slice("resume:".length);
+              const match = findSession(cbChatId, sessionId);
+              if (match) {
+                setSession(cbChatId, match.sessionId, match.project);
+                const preview = match.display.slice(0, 60);
+                answerCallbackQuery(cb.id, `Resumed ${match.sessionId.slice(0, 8)}`);
+                sendMessage(
+                  cbChatId,
+                  `Resumed session \`${match.sessionId.slice(0, 8)}\` — "${preview}"`,
+                  "Markdown"
+                );
+              } else {
+                answerCallbackQuery(cb.id, "Session not found");
+              }
+            } else if (cb.data.startsWith("cfg:")) {
+              handleConfigCallback(cbChatId, cb.id, cb.data);
             }
           }
           continue;
@@ -179,6 +185,7 @@ function handleCommand(chatId: number, text: string): void {
           "/resume <id> — Resume a session",
           "/current — Show active session",
           "/danger <msg> — Run with full permissions (skip approval)",
+          "/config — Model, budget & permission settings",
           "/usage — Session token usage & cost",
           "/context — Context window status",
           "/help — This message",
@@ -336,6 +343,10 @@ function handleCommand(chatId: number, text: string): void {
       break;
     }
 
+    case "/config":
+      sendConfigMenu(chatId);
+      break;
+
     default:
       sendMessage(chatId, "Unknown command. Try /help");
   }
@@ -369,7 +380,15 @@ function handleImage(chatId: number, fileId: string, caption: string, ext = ".jp
         : `Use the Read tool to view the image at ${localPath} and describe what you see.`;
       const session = getSession(chatId);
       const cwd = session?.project || chatCwd(chatId);
-      const result = await runClaude(prompt, session?.sessionId, cwd, false, [PHOTO_DIR]);
+      const cfg = getConfig(chatId);
+      const result = await runClaude(prompt, {
+        sessionId: session?.sessionId,
+        cwd,
+        dangerMode: cfg.alwaysDanger || false,
+        addDirs: [PHOTO_DIR],
+        model: cfg.model,
+        maxBudget: cfg.maxBudget,
+      });
       if (result.sessionId) {
         setSession(chatId, result.sessionId, cwd, caption || "image");
       }
@@ -395,7 +414,14 @@ function handlePrompt(chatId: number, prompt: string, dangerMode = false): void 
     try {
       const session = getSession(chatId);
       const cwd = session?.project || chatCwd(chatId);
-      const result = await runClaude(prompt, session?.sessionId, cwd, dangerMode);
+      const cfg = getConfig(chatId);
+      const result = await runClaude(prompt, {
+        sessionId: session?.sessionId,
+        cwd,
+        dangerMode: dangerMode || cfg.alwaysDanger || false,
+        model: cfg.model,
+        maxBudget: cfg.maxBudget,
+      });
       if (result.sessionId) {
         setSession(chatId, result.sessionId, cwd, prompt);
       }
@@ -408,6 +434,94 @@ function handlePrompt(chatId: number, prompt: string, dangerMode = false): void 
       stopTyping();
     }
   });
+}
+
+function sendConfigMenu(chatId: number): void {
+  const cfg = getConfig(chatId);
+  const currentModel = cfg.model || "default";
+  const currentBudget = cfg.maxBudget ?? "default (0.50)";
+  const dangerLabel = cfg.alwaysDanger ? "ON" : "OFF";
+
+  const modelButtons = MODELS.map((m) => ({
+    text: (cfg.model === m.id ? "✓ " : "") + m.label,
+    callback_data: `cfg:model:${m.id}`,
+  }));
+  modelButtons.unshift({
+    text: (!cfg.model ? "✓ " : "") + "Default",
+    callback_data: "cfg:model:default",
+  });
+
+  const budgetButtons = BUDGETS.map((b) => ({
+    text: (cfg.maxBudget === b ? "✓ " : "") + `$${b.toFixed(2)}`,
+    callback_data: `cfg:budget:${b}`,
+  }));
+  budgetButtons.unshift({
+    text: (!cfg.maxBudget ? "✓ " : "") + "Default",
+    callback_data: "cfg:budget:default",
+  });
+
+  const keyboard = [
+    modelButtons,
+    budgetButtons,
+    [
+      {
+        text: `Skip permissions: ${dangerLabel}`,
+        callback_data: "cfg:danger:toggle",
+      },
+    ],
+  ];
+
+  sendMessageWithKeyboard(
+    chatId,
+    [
+      "*Configuration*",
+      "",
+      `*Model:* ${currentModel}`,
+      `*Budget:* $${currentBudget}`,
+      `*Skip permissions:* ${dangerLabel}`,
+      "",
+      "Tap to change:",
+    ].join("\n"),
+    keyboard,
+    "Markdown"
+  );
+}
+
+function handleConfigCallback(chatId: number, callbackId: string, data: string): void {
+  const parts = data.split(":");
+  const field = parts[1];
+  const value = parts[2];
+
+  switch (field) {
+    case "model":
+      if (value === "default") {
+        setConfigField(chatId, "model", undefined);
+        answerCallbackQuery(callbackId, "Model reset to default");
+      } else {
+        setConfigField(chatId, "model", value);
+        const label = MODELS.find((m) => m.id === value)?.label || value;
+        answerCallbackQuery(callbackId, `Model set to ${label}`);
+      }
+      break;
+    case "budget":
+      if (value === "default") {
+        setConfigField(chatId, "maxBudget", undefined);
+        answerCallbackQuery(callbackId, "Budget reset to default");
+      } else {
+        setConfigField(chatId, "maxBudget", Number(value));
+        answerCallbackQuery(callbackId, `Budget set to $${value}`);
+      }
+      break;
+    case "danger":
+      const cfg = getConfig(chatId);
+      const newVal = !cfg.alwaysDanger;
+      setConfigField(chatId, "alwaysDanger", newVal || undefined);
+      answerCallbackQuery(callbackId, `Skip permissions: ${newVal ? "ON" : "OFF"}`);
+      break;
+  }
+
+  // Refresh the config menu
+  sendConfigMenu(chatId);
 }
 
 console.log("tg-to-cc starting (long polling)...");
