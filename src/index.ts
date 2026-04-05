@@ -1,7 +1,7 @@
 import "dotenv/config";
 import fs from "node:fs";
 import path from "node:path";
-import { sendMessage, startTyping, setMyCommands, downloadFile, PHOTO_DIR } from "./telegram.js";
+import { sendMessage, sendMessageWithKeyboard, answerCallbackQuery, startTyping, setMyCommands, downloadFile, PHOTO_DIR } from "./telegram.js";
 import { runClaude, CLAUDE_CWD, type ModelUsage } from "./claude.js";
 import { formatResponse, timeAgo } from "./format.js";
 import {
@@ -98,6 +98,29 @@ async function poll(): Promise<void> {
 
       for (const update of data.result) {
         offset = update.update_id + 1;
+
+        // Handle inline keyboard callback queries
+        const cb = update.callback_query;
+        if (cb?.data?.startsWith("resume:") && cb.message?.chat?.id) {
+          const cbChatId: number = cb.message.chat.id;
+          if (ALLOWED_CHAT_IDS.has(cbChatId)) {
+            const sessionId = cb.data.slice("resume:".length);
+            const match = findSession(cbChatId, sessionId);
+            if (match) {
+              setSession(cbChatId, match.sessionId, match.project);
+              const preview = match.display.slice(0, 60);
+              answerCallbackQuery(cb.id, `Resumed ${match.sessionId.slice(0, 8)}`);
+              sendMessage(
+                cbChatId,
+                `Resumed session \`${match.sessionId.slice(0, 8)}\` — "${preview}"`,
+                "Markdown"
+              );
+            } else {
+              answerCallbackQuery(cb.id, "Session not found");
+            }
+          }
+          continue;
+        }
 
         const msg = update.message;
         if (!msg?.chat?.id) continue;
@@ -199,9 +222,14 @@ function handleCommand(chatId: number, text: string): void {
         const preview = s.display.slice(0, 50) + (s.display.length > 50 ? "..." : "");
         return `${i + 1}. \`${s.sessionId.slice(0, 8)}\` — ${preview} (${timeAgo(s.timestamp)})`;
       });
-      sendMessage(
+      const buttons = sessions.map((s) => {
+        const preview = s.display.slice(0, 30) + (s.display.length > 30 ? "…" : "");
+        return [{ text: `${s.sessionId.slice(0, 8)} — ${preview}`, callback_data: `resume:${s.sessionId}` }];
+      });
+      sendMessageWithKeyboard(
         chatId,
-        `*Recent sessions:*\n\n${lines.join("\n")}\n\nUse /resume <id> to switch.`,
+        `*Recent sessions:*\n\n${lines.join("\n")}`,
+        buttons,
         "Markdown"
       );
       break;

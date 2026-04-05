@@ -114,6 +114,46 @@ export async function setMyCommands(): Promise<void> {
   });
 }
 
+export async function sendMessageWithKeyboard(
+  chatId: number,
+  text: string,
+  keyboard: { text: string; callback_data: string }[][],
+  parseMode?: string
+): Promise<void> {
+  const body: Record<string, unknown> = {
+    chat_id: chatId,
+    text,
+    reply_markup: { inline_keyboard: keyboard },
+  };
+  if (parseMode) body.parse_mode = parseMode;
+
+  const res = await fetch(`${API}/sendMessage`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+
+  if (!res.ok && parseMode) {
+    body.parse_mode = undefined;
+    await fetch(`${API}/sendMessage`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ ...body, parse_mode: undefined }),
+    });
+  }
+}
+
+export async function answerCallbackQuery(
+  callbackQueryId: string,
+  text?: string
+): Promise<void> {
+  await fetch(`${API}/answerCallbackQuery`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ callback_query_id: callbackQueryId, text }),
+  });
+}
+
 export async function sendChatAction(
   chatId: number,
   action = "typing"
