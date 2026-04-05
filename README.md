@@ -1,8 +1,6 @@
-# tg-to-claude-code
+# tg-to-cc
 
 Telegram bot that bridges messages to Claude Code CLI running locally. Gives you an interactive, multi-turn Claude Code experience from Telegram — including tool use (Bash, Read, Edit, etc.) on your VM.
-
-Uses long polling (no public URL needed) and your existing Claude Max subscription via the CLI's OAuth auth.
 
 ## Setup
 
