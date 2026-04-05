@@ -35,8 +35,9 @@ cp .env.example .env
 |----------|----------|-------------|
 | `BOT_TOKEN` | Yes | Telegram bot token from @BotFather |
 | `ALLOWED_CHAT_IDS` | Yes | Comma-separated chat IDs to whitelist |
-| `CLAUDE_CWD` | No | Working directory for Claude Code (default: `/home/exedev/workspace`) |
+| `CLAUDE_CWD` | No | Base working directory (default: `/home/exedev/workspace`). Each chat gets a subdirectory: `CLAUDE_CWD/<chatId>/` |
 | `CLAUDE_PATH` | No | Path to claude binary (default: `/home/exedev/.local/bin/claude`) |
+| `MAX_BUDGET_USD` | No | Max spend per invocation (default: `0.50`) |
 
 ### Get your chat ID
 
@@ -91,3 +92,7 @@ Any non-command message is sent to Claude Code as a prompt. Responses include a 
 Each message spawns `claude -p "<prompt>" --output-format json --resume <session-id>`. The `--resume` flag maintains multi-turn conversation context. Session IDs are tracked per Telegram chat in `data/sessions.json`.
 
 By default, Claude runs in `--permission-mode auto`. Use `/danger` to run a single message with `--dangerously-skip-permissions` when you need unrestricted file edits or other tool access.
+
+## Multi-user isolation
+
+Each Telegram chat gets its own working directory (`workspace/<chatId>/`). Session listing and resuming are scoped per workspace, so users cannot see or resume each other's sessions. Note: there is no hard filesystem isolation — Claude can still access paths outside the workspace via Bash.

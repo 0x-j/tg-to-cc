@@ -7,7 +7,7 @@ Telegram bot bridging messages to Claude Code CLI via long polling.
 - `src/index.ts` — Entry point, long-polling loop, command routing
 - `src/claude.ts` — Spawns `claude -p` with `--output-format json` and `--resume`
 - `src/telegram.ts` — Telegram Bot API helpers (sendMessage, typing indicator)
-- `src/sessions.ts` — Per-chat session tracking, history from `~/.claude/history.jsonl`
+- `src/sessions.ts` — Per-chat session tracking, history from `~/.claude/history.jsonl`, scoped by project
 - `src/queue.ts` — Per-chat busy gate; rejects new messages while one is in-flight
 - `src/format.ts` — Response formatting, message splitting
 
@@ -29,4 +29,6 @@ journalctl -u tg-to-cc -f
 - Markdown parse failures fall back to plain text
 - Per-invocation budget cap via `--max-budget-usd` (default $0.50, override with `MAX_BUDGET_USD` env var)
 - Only one request per chat at a time; new messages are rejected with a "please wait" notice while a response is generating
+- Each chat gets an isolated workspace at `CLAUDE_CWD/<chatId>/`; sessions are scoped per workspace so users cannot see or resume each other's sessions
+- No hard filesystem isolation — Claude can still access paths outside the workspace via Bash
 - Config is in `.env` (not committed)

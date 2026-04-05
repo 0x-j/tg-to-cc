@@ -72,7 +72,7 @@ export interface SessionInfo {
   project: string;
 }
 
-export function listHistory(limit = 10): SessionInfo[] {
+export function listHistory(limit = 10, project?: string): SessionInfo[] {
   try {
     const lines = fs.readFileSync(HISTORY_FILE, "utf-8").trim().split("\n");
     const seen = new Map<string, SessionInfo>();
@@ -81,6 +81,7 @@ export function listHistory(limit = 10): SessionInfo[] {
       try {
         const entry = JSON.parse(line);
         if (!entry.sessionId) continue;
+        if (project && entry.project !== project) continue;
         if (!seen.has(entry.sessionId)) {
           seen.set(entry.sessionId, {
             sessionId: entry.sessionId,
@@ -102,7 +103,7 @@ export function listHistory(limit = 10): SessionInfo[] {
   }
 }
 
-export function findSession(idPrefix: string): SessionInfo | undefined {
-  const history = listHistory(50);
+export function findSession(idPrefix: string, project?: string): SessionInfo | undefined {
+  const history = listHistory(50, project);
   return history.find((s) => s.sessionId.startsWith(idPrefix));
 }

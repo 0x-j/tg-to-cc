@@ -1,7 +1,8 @@
 import "dotenv/config";
 import fs from "node:fs";
+import path from "node:path";
 import { sendMessage, startTyping, setMyCommands, downloadFile, PHOTO_DIR } from "./telegram.js";
-import { runClaude, type ModelUsage } from "./claude.js";
+import { runClaude, CLAUDE_CWD, type ModelUsage } from "./claude.js";
 import { formatResponse, timeAgo } from "./format.js";
 import {
   load as loadSessions,
@@ -31,6 +32,12 @@ interface SessionUsage {
 }
 
 const sessionUsage = new Map<number, SessionUsage>();
+
+function chatCwd(chatId: number): string {
+  const dir = path.join(CLAUDE_CWD, String(chatId));
+  fs.mkdirSync(dir, { recursive: true });
+  return dir;
+}
 
 function accumulateUsage(chatId: number, modelUsage: Record<string, ModelUsage>, cost: number, durationMs: number, apiDurationMs: number): void {
   const existing = sessionUsage.get(chatId);
@@ -183,7 +190,7 @@ function handleCommand(chatId: number, text: string): void {
     }
 
     case "/sessions": {
-      const sessions = listHistory(10);
+      const sessions = listHistory(10, chatCwd(chatId));
       if (!sessions.length) {
         sendMessage(chatId, "No sessions found.");
         return;
@@ -205,7 +212,7 @@ function handleCommand(chatId: number, text: string): void {
         sendMessage(chatId, "Usage: /resume <session-id-prefix>");
         return;
       }
-      const match = findSession(arg);
+      const match = findSession(arg, chatCwd(chatId));
       if (!match) {
         sendMessage(chatId, `No session found matching \`${arg}\``, "Markdown");
         return;
@@ -333,9 +340,10 @@ function handleImage(chatId: number, fileId: string, caption: string, ext = ".jp
         ? `Use the Read tool to view the image at ${localPath}, then respond to this: ${caption}`
         : `Use the Read tool to view the image at ${localPath} and describe what you see.`;
       const session = getSession(chatId);
-      const result = await runClaude(prompt, session?.sessionId, session?.project, false, [PHOTO_DIR]);
+      const cwd = session?.project || chatCwd(chatId);
+      const result = await runClaude(prompt, session?.sessionId, cwd, false, [PHOTO_DIR]);
       if (result.sessionId) {
-        setSession(chatId, result.sessionId, session?.project || "");
+        setSession(chatId, result.sessionId, cwd);
       }
       accumulateUsage(chatId, result.modelUsage, result.cost, result.durationMs, result.durationApiMs);
       const text = formatResponse(result);
@@ -358,9 +366,10 @@ function handlePrompt(chatId: number, prompt: string, dangerMode = false): void 
     const stopTyping = startTyping(chatId);
     try {
       const session = getSession(chatId);
-      const result = await runClaude(prompt, session?.sessionId, session?.project, dangerMode);
+      const cwd = session?.project || chatCwd(chatId);
+      const result = await runClaude(prompt, session?.sessionId, cwd, dangerMode);
       if (result.sessionId) {
-        setSession(chatId, result.sessionId, session?.project || "");
+        setSession(chatId, result.sessionId, cwd);
       }
       accumulateUsage(chatId, result.modelUsage, result.cost, result.durationMs, result.durationApiMs);
       const text = formatResponse(result);
