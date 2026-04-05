@@ -102,6 +102,8 @@ export async function setMyCommands(): Promise<void> {
     body: JSON.stringify({
       commands: [
         { command: "new", description: "Start a new session" },
+        { command: "project", description: "Show or switch project" },
+        { command: "projects", description: "List all projects" },
         { command: "sessions", description: "List recent sessions" },
         { command: "resume", description: "Resume a session by ID" },
         { command: "current", description: "Show active session" },

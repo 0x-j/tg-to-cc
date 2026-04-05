@@ -35,7 +35,7 @@ cp .env.example .env
 |----------|----------|-------------|
 | `BOT_TOKEN` | Yes | Telegram bot token from @BotFather |
 | `ALLOWED_CHAT_IDS` | Yes | Comma-separated chat IDs to whitelist |
-| `CLAUDE_CWD` | No | Base working directory (default: `/home/exedev/workspace`). Each chat gets a subdirectory: `CLAUDE_CWD/<chatId>/` |
+| `CLAUDE_CWD` | No | Base working directory (default: `/home/exedev/workspace`). Each chat gets projects under `CLAUDE_CWD/<chatId>/<project>/` |
 | `CLAUDE_PATH` | No | Path to claude binary (default: `/home/exedev/.local/bin/claude`) |
 
 ### Get your chat ID
@@ -75,6 +75,10 @@ pnpm start
 | Command | Description |
 |---------|-------------|
 | `/new` | Start a new Claude Code session |
+| `/project` | Show current project |
+| `/project <name>` | Switch or create a project |
+| `/project <name> <path>` | Create project at a custom absolute path |
+| `/projects` | List all projects |
 | `/sessions` | List recent sessions |
 | `/resume <id>` | Resume a session by ID prefix |
 | `/current` | Show active session |
@@ -105,6 +109,16 @@ Use `/config` to customize settings per Telegram chat via inline keyboard button
 
 Config persists in `data/config.json` and applies across all sessions in a chat.
 
+## Projects
+
+Each chat organizes work into named projects. The default project is `default`, stored at `workspace/<chatId>/default/`.
+
+- `/project myapp` — create or switch to a project (stored at `workspace/<chatId>/myapp/`)
+- `/project myapp ~/my-projects/myapp` — create a project pointing to an existing directory
+- `/projects` — list all projects with their paths
+
+Switching projects clears the active session. Each project has its own working directory, so files from different tasks don't collide.
+
 ## Multi-user isolation
 
-Each Telegram chat gets its own working directory (`workspace/<chatId>/`). Session listing and resuming are scoped per workspace, so users cannot see or resume each other's sessions. Note: there is no hard filesystem isolation — Claude can still access paths outside the workspace via Bash.
+Each Telegram chat gets its own project namespace under `workspace/<chatId>/`. Session listing and resuming are scoped per chat, so users cannot see or resume each other's sessions. Note: there is no hard filesystem isolation — Claude can still access paths outside the project via Bash.

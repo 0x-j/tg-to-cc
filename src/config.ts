@@ -5,10 +5,17 @@ import { fileURLToPath } from "node:url";
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const CONFIG_FILE = path.join(__dirname, "../data/config.json");
 
+export interface ProjectEntry {
+  name: string;
+  path: string;
+}
+
 export interface ChatConfig {
   model?: string;
   maxBudget?: number;
   alwaysDanger?: boolean;
+  activeProject?: string;
+  projects?: Record<string, string>; // name -> path
 }
 
 const MODELS = [
@@ -60,4 +67,37 @@ export function setConfigField<K extends keyof ChatConfig>(
   }
   configs.set(chatId, cfg);
   saveConfigs();
+}
+
+export function getActiveProject(chatId: number): { name: string; path: string } {
+  const cfg = getConfig(chatId);
+  const name = cfg.activeProject || "default";
+  const projectPath = cfg.projects?.[name];
+  return { name, path: projectPath || name };
+}
+
+export function setProject(chatId: number, name: string, projectPath: string): void {
+  const cfg = configs.get(chatId) || {};
+  if (!cfg.projects) cfg.projects = {};
+  cfg.projects[name] = projectPath;
+  cfg.activeProject = name;
+  configs.set(chatId, cfg);
+  saveConfigs();
+}
+
+export function switchProject(chatId: number, name: string): boolean {
+  const cfg = configs.get(chatId) || {};
+  if (cfg.projects?.[name]) {
+    cfg.activeProject = name;
+    configs.set(chatId, cfg);
+    saveConfigs();
+    return true;
+  }
+  return false;
+}
+
+export function listProjects(chatId: number): { name: string; path: string }[] {
+  const cfg = getConfig(chatId);
+  if (!cfg.projects || !Object.keys(cfg.projects).length) return [];
+  return Object.entries(cfg.projects).map(([name, p]) => ({ name, path: p }));
 }

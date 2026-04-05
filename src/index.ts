@@ -14,7 +14,7 @@ import {
   findSession,
 } from "./sessions.js";
 import { enqueue, isBusy, setKill, clearKill, stop } from "./queue.js";
-import { loadConfigs, getConfig, setConfigField, MODELS, BUDGETS } from "./config.js";
+import { loadConfigs, getConfig, setConfigField, getActiveProject, setProject, switchProject, listProjects, MODELS, BUDGETS } from "./config.js";
 
 if (!process.env.ALLOWED_CHAT_IDS) {
   console.error("ALLOWED_CHAT_IDS is required. Set it in .env as a comma-separated list of Telegram chat IDs.");
@@ -35,7 +35,11 @@ interface SessionUsage {
 const sessionUsage = new Map<number, SessionUsage>();
 
 function chatCwd(chatId: number): string {
-  const dir = path.join(CLAUDE_CWD, String(chatId));
+  const proj = getActiveProject(chatId);
+  // If path is absolute, use it directly; otherwise it's relative to workspace/<chatId>/
+  const dir = path.isAbsolute(proj.path)
+    ? proj.path
+    : path.join(CLAUDE_CWD, String(chatId), proj.path);
   fs.mkdirSync(dir, { recursive: true });
   return dir;
 }
@@ -181,6 +185,10 @@ function handleCommand(chatId: number, text: string): void {
           "Send any message to chat with Claude Code.",
           "",
           "/new — Start a new session",
+          "/project — Show current project",
+          "/project <name> — Switch or create project",
+          "/project <name> <path> — Create project at custom path",
+          "/projects — List all projects",
           "/sessions — List recent sessions",
           "/resume <id> — Resume a session",
           "/current — Show active session",
@@ -200,6 +208,59 @@ function handleCommand(chatId: number, text: string): void {
       sessionUsage.delete(chatId);
       sendMessage(chatId, "Session cleared. Next message starts a new conversation.");
       break;
+
+    case "/project": {
+      if (!arg) {
+        const proj = getActiveProject(chatId);
+        sendMessage(chatId, `*Current project:* \`${proj.name}\`\n\`${chatCwd(chatId)}\``, "Markdown");
+        break;
+      }
+      const parts = arg.split(/\s+/);
+      const name = parts[0].replace(/[^a-zA-Z0-9_-]/g, "");
+      if (!name) {
+        sendMessage(chatId, "Project name can only contain letters, numbers, hyphens, and underscores.");
+        break;
+      }
+      const customPath = parts.slice(1).join(" ").trim().replace(/^~/, process.env.HOME || "~");
+
+      if (customPath) {
+        // Create/update project with custom path
+        if (!path.isAbsolute(customPath)) {
+          sendMessage(chatId, "Path must be absolute (e.g. `/project myapp ~/my-projects/myapp`).", "Markdown");
+          break;
+        }
+        if (!fs.existsSync(customPath)) {
+          sendMessage(chatId, `Path does not exist: \`${customPath}\``, "Markdown");
+          break;
+        }
+        setProject(chatId, name, customPath);
+      } else if (!switchProject(chatId, name)) {
+        // New project at default location
+        setProject(chatId, name, name);
+      }
+      clearSession(chatId);
+      sessionUsage.delete(chatId);
+      sendMessage(chatId, `Switched to project \`${name}\`\n\`${chatCwd(chatId)}\`\nSession cleared.`, "Markdown");
+      break;
+    }
+
+    case "/projects": {
+      const projects = listProjects(chatId);
+      if (!projects.length) {
+        sendMessage(chatId, "No projects yet. Send a message to create the default project.");
+        break;
+      }
+      const active = getActiveProject(chatId).name;
+      const lines = projects.map((p) => {
+        const arrow = p.name === active ? "▸ " : "  ";
+        const resolvedPath = path.isAbsolute(p.path)
+          ? p.path
+          : path.join(CLAUDE_CWD, String(chatId), p.path);
+        return `${arrow}\`${p.name}\` — \`${resolvedPath.replace(/^\/home\/[^/]+/, "~")}\``;
+      });
+      sendMessage(chatId, `*Projects:*\n${lines.join("\n")}`, "Markdown");
+      break;
+    }
 
     case "/current": {
       const sid = getSessionId(chatId);

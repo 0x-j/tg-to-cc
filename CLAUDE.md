@@ -10,7 +10,7 @@ Telegram bot bridging messages to Claude Code CLI via long polling.
 - `src/sessions.ts` — Per-chat session tracking, history from `~/.claude/history.jsonl`, scoped by project
 - `src/queue.ts` — Per-chat busy gate; rejects new messages while one is in-flight; tracks kill handles for `/stop`
 - `src/format.ts` — Response formatting, message splitting
-- `src/config.ts` — Per-chat config persistence (model, budget, danger mode)
+- `src/config.ts` — Per-chat config persistence (model, budget, danger mode, projects)
 
 ## Running
 
@@ -34,6 +34,8 @@ journalctl -u tg-to-cc -f
 - Response footer includes session ID, cost, duration, and working directory
 - Per-invocation budget cap via `--max-budget-usd` (default $0.50, configurable per-chat via `/config`)
 - Only one request per chat at a time; new messages are rejected with a "please wait" notice while a response is generating
-- Each chat gets an isolated workspace at `CLAUDE_CWD/<chatId>/`; sessions are scoped per workspace so users cannot see or resume each other's sessions
-- No hard filesystem isolation — Claude can still access paths outside the workspace via Bash
+- Each chat gets projects under `CLAUDE_CWD/<chatId>/<project>/`; default project is `default`
+- `/project <name>` creates/switches projects; `/project <name> <path>` points to a custom absolute path
+- Switching projects clears the active session
+- No hard filesystem isolation — Claude can still access paths outside the project via Bash
 - Config is in `.env` (not committed)
