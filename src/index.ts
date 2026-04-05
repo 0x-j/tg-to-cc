@@ -14,9 +14,11 @@ import {
 } from "./sessions.js";
 import { enqueue, isBusy } from "./queue.js";
 
-const ALLOWED_CHAT_IDS = process.env.ALLOWED_CHAT_IDS
-  ? new Set(process.env.ALLOWED_CHAT_IDS.split(",").map(Number))
-  : null;
+if (!process.env.ALLOWED_CHAT_IDS) {
+  console.error("ALLOWED_CHAT_IDS is required. Set it in .env as a comma-separated list of Telegram chat IDs.");
+  process.exit(1);
+}
+const ALLOWED_CHAT_IDS = new Set(process.env.ALLOWED_CHAT_IDS.split(",").map(Number));
 
 const BOT_TOKEN = process.env.BOT_TOKEN!;
 const POLL_URL = `https://api.telegram.org/bot${BOT_TOKEN}/getUpdates`;
@@ -94,7 +96,7 @@ async function poll(): Promise<void> {
         if (!msg?.chat?.id) continue;
 
         const chatId: number = msg.chat.id;
-        if (ALLOWED_CHAT_IDS && !ALLOWED_CHAT_IDS.has(chatId)) continue;
+        if (!ALLOWED_CHAT_IDS.has(chatId)) continue;
 
         // Handle photo messages
         if (msg.photo?.length) {

@@ -6,6 +6,23 @@ Uses long polling (no public URL needed) and your existing Claude Max subscripti
 
 ## Setup
 
+### Prerequisites (Node.js & pnpm)
+
+```bash
+# Install nvm
+curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.40.3/install.sh | bash
+source ~/.bashrc
+
+# Install Node.js LTS
+nvm install --lts
+
+# Install pnpm
+corepack enable
+corepack prepare pnpm@latest --activate
+```
+
+### Install & configure
+
 ```bash
 pnpm install
 cp .env.example .env
@@ -17,8 +34,8 @@ cp .env.example .env
 | Variable | Required | Description |
 |----------|----------|-------------|
 | `BOT_TOKEN` | Yes | Telegram bot token from @BotFather |
-| `ALLOWED_CHAT_IDS` | No | Comma-separated chat IDs to whitelist (empty = allow all) |
-| `CLAUDE_CWD` | No | Working directory for Claude Code (default: `/home/exedev`) |
+| `ALLOWED_CHAT_IDS` | Yes | Comma-separated chat IDs to whitelist |
+| `CLAUDE_CWD` | No | Working directory for Claude Code (default: `/home/exedev/workspace`) |
 | `CLAUDE_PATH` | No | Path to claude binary (default: `/home/exedev/.local/bin/claude`) |
 
 ### Get your chat ID

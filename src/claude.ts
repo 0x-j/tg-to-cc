@@ -1,7 +1,7 @@
 import { execFile } from "node:child_process";
 
 const CLAUDE_PATH = process.env.CLAUDE_PATH || "/home/exedev/.local/bin/claude";
-const CLAUDE_CWD = process.env.CLAUDE_CWD || "/home/exedev";
+const CLAUDE_CWD = process.env.CLAUDE_CWD || "/home/exedev/workspace";
 const TIMEOUT_MS = 5 * 60 * 1000; // 5 minutes
 const MAX_BUDGET_USD = process.env.MAX_BUDGET_USD || "0.50";
 
