@@ -29,12 +29,10 @@ cp .env.example .env
 
 ### Environment variables
 
-| Variable | Required | Description |
-|----------|----------|-------------|
-| `BOT_TOKEN` | Yes | Telegram bot token from @BotFather |
-| `ALLOWED_CHAT_IDS` | Yes | Comma-separated chat IDs to whitelist |
-| `CLAUDE_CWD` | No | Base working directory (default: `/home/exedev/workspace`). Each chat gets projects under `CLAUDE_CWD/<chatId>/<project>/` |
-| `CLAUDE_PATH` | No | Path to claude binary (default: `/home/exedev/.local/bin/claude`) |
+| Variable | Description |
+|----------|-------------|
+| `BOT_TOKEN` | Telegram bot token from @BotFather |
+| `ALLOWED_CHAT_IDS` | Comma-separated chat IDs to whitelist |
 
 ### Get your chat ID
 
